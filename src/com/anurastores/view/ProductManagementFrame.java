@@ -1,5 +1,19 @@
 package com.anurastores.view;
 
+import java.time.LocalDate;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+
+import java.awt.Dimension;
+import java.awt.Point;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+
+import javax.swing.JList;
+import javax.swing.JPopupMenu;
+import javax.swing.ListSelectionModel;
+import javax.swing.BorderFactory;
+
 import java.awt.BorderLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -43,6 +57,10 @@ public class ProductManagementFrame extends JFrame {
     private JComboBox<String> statusCombo;
 
     private JTextField searchField;
+    
+    private JPopupMenu suggestionPopup;
+    private JList<String> suggestionList;
+    private JScrollPane suggestionScrollPane;
 
     private JTable productTable;
     private DefaultTableModel tableModel;
@@ -331,40 +349,80 @@ public class ProductManagementFrame extends JFrame {
         }
 
 
-        // =================================================
-        // SEARCH
-        // =================================================
+		     // =================================================
+		     // SEARCH
+		     // =================================================
+		
+		     searchField =
+		             new JTextField(20);
+		
+		     JButton searchButton =
+		             new JButton(
+		                     "Search");
+		
+		     JButton showAllButton =
+		             new JButton(
+		                     "Show All");
+		
+		     // -------------------------------------------------
+		     // PRODUCT SUGGESTION POPUP
+		     // -------------------------------------------------
+		
+		     suggestionList =
+		             new JList<String>();
+		
+		     suggestionList.setSelectionMode(
+		             ListSelectionModel.SINGLE_SELECTION);
+		     
+		     suggestionList.setFocusable(false);
+		
+		     suggestionList.setVisibleRowCount(5);
+		
+		     suggestionList.setBorder(
+		             BorderFactory.createEmptyBorder(
+		                     2,
+		                     2,
+		                     2,
+		                     2));
+		
+		     suggestionPopup =
+		    	        new JPopupMenu();
 
-        searchField =
-                new JTextField(20);
-
-
-        JButton searchButton =
-                new JButton(
-                        "Search");
-
-
-        JButton showAllButton =
-                new JButton(
-                        "Show All");
-
-
-        JPanel searchPanel =
-                new JPanel();
-
-
-        searchPanel.add(
-                new JLabel(
-                        "Search:"));
-
-        searchPanel.add(
-                searchField);
-
-        searchPanel.add(
-                searchButton);
-
-        searchPanel.add(
-                showAllButton);
+		    	suggestionPopup.setFocusable(false);
+		
+		     suggestionPopup.setBorder(
+		             BorderFactory.createLineBorder(
+		                     java.awt.Color.LIGHT_GRAY));
+		
+		     suggestionScrollPane =
+		    	        new JScrollPane(
+		    	                suggestionList);
+		
+		     suggestionScrollPane.setBorder(
+		             BorderFactory.createEmptyBorder());
+		
+		     suggestionPopup.add(
+		             suggestionScrollPane);
+		
+		     // -------------------------------------------------
+		     // SEARCH PANEL
+		     // -------------------------------------------------
+		
+		     JPanel searchPanel =
+		             new JPanel();
+		
+		     searchPanel.add(
+		             new JLabel(
+		                     "Search:"));
+		
+		     searchPanel.add(
+		             searchField);
+		
+		     searchPanel.add(
+		             searchButton);
+		
+		     searchPanel.add(
+		             showAllButton);
 
 
         // =================================================
@@ -472,9 +530,74 @@ public class ProductManagementFrame extends JFrame {
 
                     searchField.setText("");
 
+                    suggestionPopup
+                            .setVisible(false);
+
                     loadProducts();
                 });
+        
+     // =================================================
+     // LIVE SEARCH SUGGESTIONS
+     // =================================================
 
+     searchField.getDocument()
+             .addDocumentListener(
+                     new DocumentListener() {
+
+                         @Override
+                         public void insertUpdate(
+                                 DocumentEvent e) {
+
+                             updateSuggestions();
+                         }
+
+                         @Override
+                         public void removeUpdate(
+                                 DocumentEvent e) {
+
+                             updateSuggestions();
+                         }
+
+                         @Override
+                         public void changedUpdate(
+                                 DocumentEvent e) {
+
+                             updateSuggestions();
+                         }
+                     });
+     
+		  // =================================================
+		  // SELECT PRODUCT FROM SUGGESTIONS
+		  // =================================================
+		
+		  suggestionList.addMouseListener(
+		          new MouseAdapter() {
+		
+		              @Override
+		              public void mouseClicked(
+		                      MouseEvent e) {
+		
+		                  if (e.getClickCount() == 1) {
+		
+		                      selectSuggestion();
+		                  }
+		              }
+		          });
+		  
+		  searchField.addActionListener(
+			        e -> {
+
+			            if (suggestionPopup.isVisible()
+			                    && suggestionList
+			                            .getSelectedIndex() >= 0) {
+
+			                selectSuggestion();
+
+			            } else {
+
+			                searchProducts();
+			            }
+			        });
 
         // =================================================
         // MANAGE CATEGORIES
@@ -944,12 +1067,10 @@ public class ProductManagementFrame extends JFrame {
 
         Date expiryDate = null;
 
-
         String expiryText =
                 expiryDateField
                         .getText()
                         .trim();
-
 
         if (!expiryText.isEmpty()) {
 
@@ -963,7 +1084,32 @@ public class ProductManagementFrame extends JFrame {
 
                 JOptionPane.showMessageDialog(
                         this,
-                        "Expiry date must be in YYYY-MM-DD format.");
+                        "Expiry date must be in YYYY-MM-DD format.",
+                        "Invalid Expiry Date",
+                        JOptionPane.WARNING_MESSAGE);
+
+                return null;
+            }
+
+            // =================================================
+            // CHECK THAT EXPIRY DATE IS NOT IN THE PAST
+            // =================================================
+
+            LocalDate expiryLocalDate =
+                    expiryDate
+                            .toLocalDate();
+
+            LocalDate today =
+                    LocalDate.now();
+
+            if (expiryLocalDate.isBefore(today)) {
+
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Expiry date cannot be in the past.\n"
+                        + "Please enter today or a future date.",
+                        "Invalid Expiry Date",
+                        JOptionPane.WARNING_MESSAGE);
 
                 return null;
             }
@@ -1037,7 +1183,7 @@ public class ProductManagementFrame extends JFrame {
                 products);
     }
 
-
+    
     // =====================================================
     // SEARCH PRODUCTS
     // =====================================================
@@ -1226,6 +1372,184 @@ public class ProductManagementFrame extends JFrame {
                 : value.toString();
     }
 
+ // =====================================================
+ // UPDATE PRODUCT SEARCH SUGGESTIONS
+ // =====================================================
+
+ private void updateSuggestions() {
+
+     String keyword =
+             searchField
+                     .getText()
+                     .trim();
+
+     // Hide suggestions when the search box is empty
+     if (keyword.isEmpty()) {
+
+         suggestionPopup.setVisible(false);
+
+         return;
+     }
+
+     // Get products matching the keyword from the database
+     List<Product> products =
+             productDAO
+                     .searchProducts(keyword);
+
+     javax.swing.DefaultListModel<String>
+             listModel =
+             new javax.swing.DefaultListModel<String>();
+
+     int count = 0;
+
+     // Convert keyword to lowercase so the comparison
+     // is not case-sensitive.
+     String lowerKeyword =
+             keyword.toLowerCase();
+
+     for (Product product :
+             products) {
+
+         String productName =
+                 product.getProductName();
+
+         if (productName == null
+                 || productName.trim().isEmpty()) {
+
+             continue;
+         }
+
+         // -------------------------------------------------
+         // ONLY SHOW PRODUCTS THAT START WITH THE KEYWORD
+         // -------------------------------------------------
+         //
+         // Example:
+         //
+         // "m" + "Milo"       -> YES
+         // "m" + "Milk"       -> YES
+         // "m" + "Jam"        -> NO
+         // "m" + "Tomato"     -> NO
+         //
+         if (!productName
+                 .toLowerCase()
+                 .startsWith(lowerKeyword)) {
+
+             continue;
+         }
+
+         // Prevent duplicate product names
+         boolean duplicate = false;
+
+         for (int i = 0;
+                 i < listModel.size();
+                 i++) {
+
+             if (listModel
+                     .getElementAt(i)
+                     .equalsIgnoreCase(
+                             productName)) {
+
+                 duplicate = true;
+
+                 break;
+             }
+         }
+
+         if (duplicate) {
+
+             continue;
+         }
+
+         listModel.addElement(
+                 productName);
+
+         count++;
+
+         // Maximum 5 suggestions
+         if (count >= 5) {
+
+             break;
+         }
+     }
+
+     // No matching product names
+     if (count == 0) {
+
+         suggestionPopup.setVisible(false);
+
+         return;
+     }
+
+     // Put suggestions into the list
+     suggestionList.setModel(
+             listModel);
+
+     // Select first suggestion
+     suggestionList.setSelectedIndex(0);
+
+     // -------------------------------------------------
+     // SET POPUP SIZE
+     // -------------------------------------------------
+
+     int rowHeight =
+             suggestionList
+                     .getFixedCellHeight();
+
+     if (rowHeight <= 0) {
+
+         rowHeight = 25;
+     }
+
+     int height =
+             Math.min(count, 5)
+             * rowHeight
+             + 4;
+
+     suggestionScrollPane
+             .setPreferredSize(
+                     new Dimension(
+                             searchField.getWidth(),
+                             height));
+
+     suggestionPopup.pack();
+
+     // -------------------------------------------------
+     // SHOW POPUP UNDER SEARCH FIELD
+     // -------------------------------------------------
+
+     suggestionPopup.show(
+             searchField,
+             0,
+             searchField.getHeight());
+
+     // Make absolutely sure the search field
+     // keeps keyboard focus.
+     searchField.requestFocusInWindow();
+ }
+		 
+		// =====================================================
+		// SELECT PRODUCT SUGGESTION
+		// =====================================================
+
+		private void selectSuggestion() {
+
+		    String selectedProduct =
+		            suggestionList
+		                    .getSelectedValue();
+
+		    if (selectedProduct == null
+		            || selectedProduct.trim().isEmpty()) {
+
+		        return;
+		    }
+
+		    searchField.setText(
+		            selectedProduct);
+
+		    suggestionPopup.setVisible(false);
+
+		    searchProducts();
+		}
 
     // =====================================================
     // CLEAR
@@ -1260,5 +1584,9 @@ public class ProductManagementFrame extends JFrame {
 
 
         productTable.clearSelection();
+
+        searchField.setText("");
+
+        suggestionPopup.setVisible(false);
     }
 }
