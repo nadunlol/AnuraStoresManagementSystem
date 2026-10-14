@@ -72,6 +72,9 @@ public class EmployeeManagementFrame extends JFrame {
     private static final Pattern PHONE_PATTERN = Pattern.compile(
             "^[+]?[0-9\\s-]{7,15}$"
     );
+    private static final Pattern NIC_PATTERN = Pattern.compile(
+    		"^(?:[0-9]{9}[VvXx]|[0-9]{12})$"
+    );
 
     public EmployeeManagementFrame() {
 
@@ -819,6 +822,16 @@ public class EmployeeManagementFrame extends JFrame {
             JOptionPane.showMessageDialog(
                     this,
                     "Hire Date is required.",
+                    "Validation Error",
+                    JOptionPane.WARNING_MESSAGE);
+            return false;
+        }
+        
+        String NIC = nicField.getText().trim();
+        if (!NIC.isEmpty() && !NIC_PATTERN.matcher(NIC).matches()) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Invalid NIC number format.\nExample: 200527800440 or 901234567V",
                     "Validation Error",
                     JOptionPane.WARNING_MESSAGE);
             return false;
