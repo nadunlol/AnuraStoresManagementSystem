@@ -1,19 +1,28 @@
 package com.anurastores.view;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.List;
 
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 
 import com.anurastores.dao.InventoryDAO;
@@ -22,13 +31,26 @@ import com.anurastores.model.Inventory;
 import com.anurastores.model.Product;
 import com.anurastores.model.StockMovement;
 import com.anurastores.model.User;
+import com.anurastores.util.UITheme;
 
 public class InventoryManagementFrame extends JFrame {
 
-    private JComboBox<ProductItem> productCombo;
+	private JTextField productSearchField;
+	private Integer selectedProductId = null;
+
+	// Prevent autocomplete when the product field is changed by code.
+	private boolean suppressProductSuggestions = false;
+    private JPopupMenu productSuggestionPopup;
+    private JList<ProductItem> productSuggestionList;
+    private JScrollPane productSuggestionScrollPane;
+
     private JTextField quantityField;
     private JTextField remarksField;
+    
     private JTextField searchField;
+    private JPopupMenu suggestionPopup;
+    private JList<String> suggestionList;
+    private JScrollPane suggestionScrollPane;
 
     private JLabel currentStockLabel;
     private JLabel lowStockLabel;
@@ -60,97 +82,126 @@ public class InventoryManagementFrame extends JFrame {
 
         initComponents();
 
-        loadProducts();
         loadInventory();
         loadStockMovements();
     }
 
     private void initComponents() {
 
+        setLayout(new BorderLayout(10, 10));
+
         // ==========================
         // STOCK FORM
         // ==========================
 
-        productCombo = new JComboBox<ProductItem>();
+        productSearchField = new JTextField(15);
+        UITheme.styleTextField(productSearchField);
+
+        productSuggestionList = new JList<>();
+        productSuggestionList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        productSuggestionList.setFocusable(false);
+        productSuggestionList.setVisibleRowCount(5);
+
+        productSuggestionPopup = new JPopupMenu();
+        productSuggestionPopup.setFocusable(false);
+        productSuggestionPopup.setBorder(BorderFactory.createLineBorder(UITheme.BORDER));
+
+        productSuggestionScrollPane = new JScrollPane(productSuggestionList);
+        productSuggestionScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        productSuggestionPopup.add(productSuggestionScrollPane);
 
         quantityField = new JTextField(8);
+        UITheme.styleTextField(quantityField);
+
         remarksField = new JTextField(18);
+        UITheme.styleTextField(remarksField);
 
-        currentStockLabel =
-                new JLabel("Current Stock: -");
+        currentStockLabel = new JLabel("Current Stock: -");
+        UITheme.styleNormalLabel(currentStockLabel);
 
-        lowStockLabel =
-                new JLabel("Low Stock Items: 0");
-
-
-        JButton addStockButton =
-                new JButton("Add Stock");
-
-        JButton adjustStockButton =
-                new JButton("Adjust Stock");
-
-        JButton clearButton =
-                new JButton("Clear");
+        lowStockLabel = new JLabel("Low Stock Items: 0");
+        UITheme.styleNormalLabel(lowStockLabel);
 
 
-        JPanel stockPanel =
-                new JPanel();
+        JButton addStockButton = new JButton("Add Stock");
+        UITheme.stylePrimaryButton(addStockButton);
 
-        stockPanel.add(
-                new JLabel("Product:"));
+        JButton adjustStockButton = new JButton("Adjust Stock");
+        UITheme.stylePrimaryButton(adjustStockButton);
 
-        stockPanel.add(productCombo);
+        JButton clearButton = new JButton("Clear");
+        UITheme.styleSecondaryButton(clearButton);
 
-        stockPanel.add(
-                new JLabel("Quantity:"));
 
+        JPanel stockPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        UITheme.stylePanel(stockPanel);
+        stockPanel.setBorder(
+                BorderFactory.createCompoundBorder(
+                        UITheme.createSectionBorder("Manage Stock"),
+                        BorderFactory.createEmptyBorder(5, 5, 5, 5)
+                )
+        );
+
+        JLabel productLabel = new JLabel("Product:");
+        UITheme.styleNormalLabel(productLabel);
+        JLabel qtyLabel = new JLabel("Quantity:");
+        UITheme.styleNormalLabel(qtyLabel);
+        JLabel remLabel = new JLabel("Remarks:");
+        UITheme.styleNormalLabel(remLabel);
+
+        stockPanel.add(productLabel);
+        stockPanel.add(productSearchField);
+        stockPanel.add(qtyLabel);
         stockPanel.add(quantityField);
-
-        stockPanel.add(
-                new JLabel("Remarks:"));
-
+        stockPanel.add(remLabel);
         stockPanel.add(remarksField);
-
         stockPanel.add(addStockButton);
         stockPanel.add(adjustStockButton);
         stockPanel.add(clearButton);
 
 
         // ==========================
-        // SEARCH
+        // SEARCH (Centered)
         // ==========================
 
-        searchField =
-                new JTextField(15);
+        searchField = new JTextField(15);
+        UITheme.styleTextField(searchField);
 
-        JButton searchButton =
-                new JButton("Search");
+        JButton showAllButton = new JButton("Show All");
+        UITheme.styleSecondaryButton(showAllButton);
 
-        JButton showAllButton =
-                new JButton("Show All");
+        // Inventory Main Search Suggestions Popup
+        suggestionList = new JList<>();
+        suggestionList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        suggestionList.setFocusable(false);
+        suggestionList.setVisibleRowCount(5);
+
+        suggestionPopup = new JPopupMenu();
+        suggestionPopup.setFocusable(false);
+        suggestionPopup.setBorder(BorderFactory.createLineBorder(UITheme.BORDER));
+
+        suggestionScrollPane = new JScrollPane(suggestionList);
+        suggestionScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        suggestionPopup.add(suggestionScrollPane);
 
 
-        JPanel searchPanel =
-                new JPanel();
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+        UITheme.stylePanel(searchPanel);
+        searchPanel.setBorder(BorderFactory.createEmptyBorder(5, 10, 10, 10));
 
-        searchPanel.add(
-                new JLabel("Search Inventory:"));
+        JLabel searchInvLabel = new JLabel("Search Inventory:");
+        UITheme.styleNormalLabel(searchInvLabel);
 
+        searchPanel.add(searchInvLabel);
         searchPanel.add(searchField);
-
-        searchPanel.add(searchButton);
         searchPanel.add(showAllButton);
-
         searchPanel.add(currentStockLabel);
-
         searchPanel.add(lowStockLabel);
 
 
-        JPanel topPanel =
-                new JPanel(
-                        new GridLayout(
-                                2,
-                                1));
+        JPanel topPanel = new JPanel(new GridLayout(2, 1));
+        UITheme.stylePanel(topPanel);
+        topPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 5, 10));
 
         topPanel.add(stockPanel);
         topPanel.add(searchPanel);
@@ -161,7 +212,6 @@ public class InventoryManagementFrame extends JFrame {
         // ==========================
 
         String[] inventoryColumns = {
-
                 "Inventory ID",
                 "Product ID",
                 "Product Name",
@@ -171,30 +221,18 @@ public class InventoryManagementFrame extends JFrame {
                 "Last Updated"
         };
 
+        inventoryTableModel = new DefaultTableModel(inventoryColumns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
 
-        inventoryTableModel =
-                new DefaultTableModel(
-                        inventoryColumns,
-                        0) {
+        inventoryTable = new JTable(inventoryTableModel);
+        UITheme.styleTable(inventoryTable);
 
-                    @Override
-                    public boolean isCellEditable(
-                            int row,
-                            int column) {
-
-                        return false;
-                    }
-                };
-
-
-        inventoryTable =
-                new JTable(
-                        inventoryTableModel);
-
-
-        JScrollPane inventoryScrollPane =
-                new JScrollPane(
-                        inventoryTable);
+        JScrollPane inventoryScrollPane = new JScrollPane(inventoryTable);
+        inventoryScrollPane.setBorder(BorderFactory.createLineBorder(UITheme.BORDER));
 
 
         // ==========================
@@ -202,7 +240,6 @@ public class InventoryManagementFrame extends JFrame {
         // ==========================
 
         String[] movementColumns = {
-
                 "Movement ID",
                 "Product ID",
                 "Product Name",
@@ -212,163 +249,301 @@ public class InventoryManagementFrame extends JFrame {
                 "Remarks"
         };
 
+        movementTableModel = new DefaultTableModel(movementColumns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
 
-        movementTableModel =
-                new DefaultTableModel(
-                        movementColumns,
-                        0) {
+        movementTable = new JTable(movementTableModel);
+        UITheme.styleTable(movementTable);
 
-                    @Override
-                    public boolean isCellEditable(
-                            int row,
-                            int column) {
-
-                        return false;
-                    }
-                };
-
-
-        movementTable =
-                new JTable(
-                        movementTableModel);
-
-
-        JScrollPane movementScrollPane =
-                new JScrollPane(
-                        movementTable);
+        JScrollPane movementScrollPane = new JScrollPane(movementTable);
+        movementScrollPane.setBorder(BorderFactory.createLineBorder(UITheme.BORDER));
 
 
         // ==========================
         // DELETE MOVEMENT
         // ==========================
 
-        deleteMovementButton =
-                new JButton(
-                        "Delete / Reverse Selected Movement");
-
+        deleteMovementButton = new JButton("Delete / Reverse Selected Movement");
+        UITheme.styleDangerButton(deleteMovementButton);
 
         if (loggedInUser == null
-                || !"ADMIN".equalsIgnoreCase(
-                        loggedInUser.getRole())) {
-
+                || !"ADMIN".equalsIgnoreCase(loggedInUser.getRole())) {
             deleteMovementButton.setEnabled(false);
         }
 
 
-        JPanel movementPanel =
-                new JPanel(
-                        new BorderLayout());
+        JPanel movementPanel = new JPanel(new BorderLayout());
+        UITheme.stylePanel(movementPanel);
+        movementPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
-        movementPanel.add(
-                new JLabel(
-                        "Stock Movement History"),
-                BorderLayout.NORTH);
+        JLabel movementTitle = new JLabel("Stock Movement History");
+        UITheme.styleSectionLabel(movementTitle);
+        movementPanel.add(movementTitle, BorderLayout.NORTH);
+        movementPanel.add(movementScrollPane, BorderLayout.CENTER);
 
-        movementPanel.add(
-                movementScrollPane,
-                BorderLayout.CENTER);
-
-        movementPanel.add(
-                deleteMovementButton,
-                BorderLayout.SOUTH);
+        JPanel deleteButtonWrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 5));
+        UITheme.stylePanel(deleteButtonWrapper);
+        deleteButtonWrapper.add(deleteMovementButton);
+        movementPanel.add(deleteButtonWrapper, BorderLayout.SOUTH);
 
 
-        JPanel inventoryPanel =
-                new JPanel(
-                        new BorderLayout());
+        JPanel inventoryPanel = new JPanel(new BorderLayout());
+        UITheme.stylePanel(inventoryPanel);
+        inventoryPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 
-        inventoryPanel.add(
-                new JLabel(
-                        "Current Inventory"),
-                BorderLayout.NORTH);
-
-        inventoryPanel.add(
-                inventoryScrollPane,
-                BorderLayout.CENTER);
+        JLabel inventoryTitle = new JLabel("Current Inventory");
+        UITheme.styleSectionLabel(inventoryTitle);
+        inventoryPanel.add(inventoryTitle, BorderLayout.NORTH);
+        inventoryPanel.add(inventoryScrollPane, BorderLayout.CENTER);
 
 
-        JSplitPane splitPane =
-                new JSplitPane(
-                        JSplitPane.VERTICAL_SPLIT,
-                        inventoryPanel,
-                        movementPanel);
-
+        JSplitPane splitPane = new JSplitPane(
+                JSplitPane.VERTICAL_SPLIT,
+                inventoryPanel,
+                movementPanel);
         splitPane.setDividerLocation(280);
+        splitPane.setBorder(BorderFactory.createEmptyBorder());
 
 
-        add(
-                topPanel,
-                BorderLayout.NORTH);
+        JPanel centerPanel = new JPanel(new BorderLayout());
+        UITheme.stylePanel(centerPanel);
+        centerPanel.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
+        centerPanel.add(splitPane, BorderLayout.CENTER);
 
-        add(
-                splitPane,
-                BorderLayout.CENTER);
+
+        add(topPanel, BorderLayout.NORTH);
+        add(centerPanel, BorderLayout.CENTER);
 
 
         // ==========================
         // EVENTS
         // ==========================
 
-        addStockButton.addActionListener(
-                e -> addStock());
+        addStockButton.addActionListener(e -> addStock());
+        adjustStockButton.addActionListener(e -> adjustStock());
 
-        adjustStockButton.addActionListener(
-                e -> adjustStock());
+        // Live Main Search Field Listener
+        searchField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) { updateMainSearchSuggestions(); }
+            @Override
+            public void removeUpdate(DocumentEvent e) { updateMainSearchSuggestions(); }
+            @Override
+            public void changedUpdate(DocumentEvent e) { updateMainSearchSuggestions(); }
+        });
 
-        searchButton.addActionListener(
-                e -> searchInventory());
+        suggestionList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 1) {
+                    selectMainSearchSuggestion();
+                }
+            }
+        });
 
-        showAllButton.addActionListener(
-                e -> {
+        searchField.addActionListener(e -> {
+            if (suggestionPopup.isVisible() && suggestionList.getSelectedIndex() >= 0) {
+                selectMainSearchSuggestion();
+            } else {
+                searchInventory();
+            }
+        });
 
-                    searchField.setText("");
-                    loadInventory();
-                });
+        showAllButton.addActionListener(e -> {
+            searchField.setText("");
+            suggestionPopup.setVisible(false);
+            loadInventory();
+        });
 
-        clearButton.addActionListener(
-                e -> clearFields());
+        // Live Product Search Field Listener
+        productSearchField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                if (!suppressProductSuggestions) {
+                    updateProductSuggestions();
+                }
+            }
 
-        deleteMovementButton.addActionListener(
-                e -> deleteMovement());
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                if (!suppressProductSuggestions) {
+                    updateProductSuggestions();
+                }
+            }
 
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                if (!suppressProductSuggestions) {
+                    updateProductSuggestions();
+                }
+            }
+        });
 
-        productCombo.addActionListener(
-                e -> updateCurrentStockLabel());
+        productSuggestionList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 1) {
+                    selectProductSuggestion();
+                }
+            }
+        });
 
+        clearButton.addActionListener(e -> clearFields());
+        deleteMovementButton.addActionListener(e -> deleteMovement());
 
-        inventoryTable
-                .getSelectionModel()
-                .addListSelectionListener(
-                        e -> {
-
-                            if (!e.getValueIsAdjusting()) {
-                                selectProductFromInventoryTable();
-                            }
-                        });
+        inventoryTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                selectProductFromInventoryTable();
+            }
+        });
     }
 
 
-    // ============================================
-    // LOAD ACTIVE PRODUCTS
-    // ============================================
+    // =====================================================
+    // PRODUCT SEARCH SUGGESTIONS
+    // =====================================================
 
-    private void loadProducts() {
+    private void updateProductSuggestions() {
+        String keyword = productSearchField.getText().trim();
 
-        productCombo.removeAllItems();
+        if (keyword.isEmpty()) {
+            selectedProductId = null;
+            productSuggestionPopup.setVisible(false);
+            updateCurrentStockLabel();
+            return;
+        }
 
-        List<Product> products =
-                productDAO.getAllProducts();
+        List<Product> products = productDAO.searchProducts(keyword);
+        javax.swing.DefaultListModel<ProductItem> listModel = new javax.swing.DefaultListModel<>();
+        int count = 0;
+        String lowerKeyword = keyword.toLowerCase();
 
         for (Product product : products) {
-
-            if ("ACTIVE".equalsIgnoreCase(
-                    product.getStatus())) {
-
-                productCombo.addItem(
-                        new ProductItem(
-                                product.getProductId(),
-                                product.getProductName()));
+            if (!"ACTIVE".equalsIgnoreCase(product.getStatus())) {
+                continue;
             }
+            String name = product.getProductName();
+            if (name == null || !name.toLowerCase().contains(lowerKeyword)) {
+                continue;
+            }
+
+            listModel.addElement(new ProductItem(product.getProductId(), name));
+            count++;
+
+            if (count >= 5) {
+                break;
+            }
+        }
+
+        if (count == 0) {
+            productSuggestionPopup.setVisible(false);
+            selectedProductId = null;
+            updateCurrentStockLabel();
+            return;
+        }
+
+        productSuggestionList.setModel(listModel);
+        productSuggestionList.setSelectedIndex(0);
+
+        int height = Math.min(count, 5) * 25 + 4;
+        productSuggestionScrollPane.setPreferredSize(new Dimension(productSearchField.getWidth(), height));
+        productSuggestionPopup.pack();
+        productSuggestionPopup.show(productSearchField, 0, productSearchField.getHeight());
+        productSearchField.requestFocusInWindow();
+    }
+
+    private void selectProductSuggestion() {
+        ProductItem selected = productSuggestionList.getSelectedValue();
+
+        if (selected == null) {
+            return;
+        }
+
+        suppressProductSuggestions = true;
+
+        try {
+            selectedProductId = selected.getProductId();
+            productSearchField.setText(selected.getProductName());
+            productSuggestionPopup.setVisible(false);
+        } finally {
+            suppressProductSuggestions = false;
+        }
+
+        updateCurrentStockLabel();
+    }
+
+
+    // =====================================================
+    // MAIN SEARCH SUGGESTIONS
+    // =====================================================
+
+    private void updateMainSearchSuggestions() {
+        String keyword = searchField.getText().trim();
+
+        if (keyword.isEmpty()) {
+            suggestionPopup.setVisible(false);
+            loadInventory();
+            return;
+        }
+
+        List<Inventory> inventoryList = inventoryDAO.searchInventory(keyword);
+        javax.swing.DefaultListModel<String> listModel = new javax.swing.DefaultListModel<>();
+        int count = 0;
+        String lowerKeyword = keyword.toLowerCase();
+
+        for (Inventory inv : inventoryList) {
+            String name = inv.getProductName();
+            if (name == null || !name.toLowerCase().startsWith(lowerKeyword)) {
+                continue;
+            }
+
+            boolean duplicate = false;
+            for (int i = 0; i < listModel.size(); i++) {
+                if (listModel.getElementAt(i).equalsIgnoreCase(name)) {
+                    duplicate = true;
+                    break;
+                }
+            }
+
+            if (duplicate) {
+                continue;
+            }
+
+            listModel.addElement(name);
+            count++;
+
+            if (count >= 5) {
+                break;
+            }
+        }
+
+        if (count == 0) {
+            suggestionPopup.setVisible(false);
+            searchInventory();
+            return;
+        }
+
+        suggestionList.setModel(listModel);
+        suggestionList.setSelectedIndex(0);
+
+        int height = Math.min(count, 5) * 25 + 4;
+        suggestionScrollPane.setPreferredSize(new Dimension(searchField.getWidth(), height));
+        suggestionPopup.pack();
+        suggestionPopup.show(searchField, 0, searchField.getHeight());
+        searchField.requestFocusInWindow();
+        searchInventory();
+    }
+
+    private void selectMainSearchSuggestion() {
+        String selected = suggestionList.getSelectedValue();
+        if (selected != null) {
+            searchField.setText(selected);
+            suggestionPopup.setVisible(false);
+            searchInventory();
         }
     }
 
@@ -378,74 +553,36 @@ public class InventoryManagementFrame extends JFrame {
     // ============================================
 
     private void addStock() {
-
-        ProductItem product =
-                (ProductItem)
-                        productCombo.getSelectedItem();
-
-        if (product == null) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Please select a product.");
-
+        if (selectedProductId == null) {
+            JOptionPane.showMessageDialog(this, "Please select a valid product using the search field.");
             return;
         }
-
 
         int quantity;
 
         try {
-
-            quantity =
-                    Integer.parseInt(
-                            quantityField
-                                    .getText()
-                                    .trim());
-
+            quantity = Integer.parseInt(quantityField.getText().trim());
         } catch (Exception e) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Quantity must be a whole number.");
-
+            JOptionPane.showMessageDialog(this, "Quantity must be a whole number.");
             return;
         }
-
 
         if (quantity <= 0) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Stock quantity must be greater than zero.");
-
+            JOptionPane.showMessageDialog(this, "Stock quantity must be greater than zero.");
             return;
         }
 
-
-        boolean success =
-                inventoryDAO.addStock(
-                        product.getProductId(),
-                        quantity,
-                        remarksField
-                                .getText()
-                                .trim());
-
+        boolean success = inventoryDAO.addStock(
+                selectedProductId,
+                quantity,
+                remarksField.getText().trim());
 
         if (success) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Stock added successfully!");
-
+            JOptionPane.showMessageDialog(this, "Stock added successfully!");
             clearFields();
             refreshAll();
-
         } else {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Could not add stock.");
+            JOptionPane.showMessageDialog(this, "Could not add stock.");
         }
     }
 
@@ -455,75 +592,38 @@ public class InventoryManagementFrame extends JFrame {
     // ============================================
 
     private void adjustStock() {
-
-        ProductItem product =
-                (ProductItem)
-                        productCombo.getSelectedItem();
-
-        if (product == null) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Please select a product.");
-
+        if (selectedProductId == null) {
+            JOptionPane.showMessageDialog(this, "Please select a valid product using the search field.");
             return;
         }
-
 
         int adjustment;
 
         try {
-
-            adjustment =
-                    Integer.parseInt(
-                            quantityField
-                                    .getText()
-                                    .trim());
-
+            adjustment = Integer.parseInt(quantityField.getText().trim());
         } catch (Exception e) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Enter a valid adjustment quantity.");
-
+            JOptionPane.showMessageDialog(this, "Enter a valid adjustment quantity.");
             return;
         }
-
 
         if (adjustment == 0) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Adjustment cannot be zero.");
-
+            JOptionPane.showMessageDialog(this, "Adjustment cannot be zero.");
             return;
         }
 
-
-        boolean success =
-                inventoryDAO.adjustStock(
-                        product.getProductId(),
-                        adjustment,
-                        remarksField
-                                .getText()
-                                .trim());
-
+        boolean success = inventoryDAO.adjustStock(
+                selectedProductId,
+                adjustment,
+                remarksField.getText().trim());
 
         if (success) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Stock adjusted successfully!");
-
+            JOptionPane.showMessageDialog(this, "Stock adjusted successfully!");
             clearFields();
             refreshAll();
-
         } else {
-
             JOptionPane.showMessageDialog(
                     this,
-                    "Adjustment failed.\n"
-                    + "Check that the stock will not become negative.");
+                    "Adjustment failed.\nCheck that the stock will not become negative.");
         }
     }
 
@@ -533,12 +633,8 @@ public class InventoryManagementFrame extends JFrame {
     // ============================================
 
     private void loadInventory() {
-
-        List<Inventory> inventoryList =
-                inventoryDAO.getAllInventory();
-
-        displayInventory(
-                inventoryList);
+        List<Inventory> inventoryList = inventoryDAO.getAllInventory();
+        displayInventory(inventoryList);
     }
 
 
@@ -547,26 +643,15 @@ public class InventoryManagementFrame extends JFrame {
     // ============================================
 
     private void searchInventory() {
-
-        String keyword =
-                searchField
-                        .getText()
-                        .trim();
+        String keyword = searchField.getText().trim();
 
         if (keyword.isEmpty()) {
-
             loadInventory();
             return;
         }
 
-
-        List<Inventory> inventoryList =
-                inventoryDAO
-                        .searchInventory(
-                                keyword);
-
-        displayInventory(
-                inventoryList);
+        List<Inventory> inventoryList = inventoryDAO.searchInventory(keyword);
+        displayInventory(inventoryList);
     }
 
 
@@ -574,46 +659,28 @@ public class InventoryManagementFrame extends JFrame {
     // DISPLAY INVENTORY
     // ============================================
 
-    private void displayInventory(
-            List<Inventory> inventoryList) {
-
+    private void displayInventory(List<Inventory> inventoryList) {
         inventoryTableModel.setRowCount(0);
-
         int lowStockCount = 0;
 
+        for (Inventory inventory : inventoryList) {
+            inventoryTableModel.addRow(new Object[] {
+                    inventory.getInventoryId(),
+                    inventory.getProductId(),
+                    inventory.getProductName(),
+                    inventory.getQuantity(),
+                    inventory.getReorderLevel(),
+                    inventory.getStockStatus(),
+                    inventory.getLastUpdated()
+            });
 
-        for (Inventory inventory :
-                inventoryList) {
-
-            inventoryTableModel.addRow(
-                    new Object[] {
-
-                            inventory.getInventoryId(),
-                            inventory.getProductId(),
-                            inventory.getProductName(),
-                            inventory.getQuantity(),
-                            inventory.getReorderLevel(),
-                            inventory.getStockStatus(),
-                            inventory.getLastUpdated()
-                    });
-
-
-            if ("LOW STOCK".equalsIgnoreCase(
-                    inventory.getStockStatus())
-
-                    || "OUT OF STOCK".equalsIgnoreCase(
-                            inventory.getStockStatus())) {
-
+            if ("LOW STOCK".equalsIgnoreCase(inventory.getStockStatus())
+                    || "OUT OF STOCK".equalsIgnoreCase(inventory.getStockStatus())) {
                 lowStockCount++;
             }
         }
 
-
-        lowStockLabel.setText(
-                "Low Stock Items: "
-                + lowStockCount);
-
-
+        lowStockLabel.setText("Low Stock Items: " + lowStockCount);
         updateCurrentStockLabel();
     }
 
@@ -623,29 +690,20 @@ public class InventoryManagementFrame extends JFrame {
     // ============================================
 
     private void loadStockMovements() {
-
         movementTableModel.setRowCount(0);
 
+        List<StockMovement> movements = inventoryDAO.getAllStockMovements();
 
-        List<StockMovement> movements =
-                inventoryDAO
-                        .getAllStockMovements();
-
-
-        for (StockMovement movement :
-                movements) {
-
-            movementTableModel.addRow(
-                    new Object[] {
-
-                            movement.getMovementId(),
-                            movement.getProductId(),
-                            movement.getProductName(),
-                            movement.getMovementType(),
-                            movement.getQuantity(),
-                            movement.getMovementDate(),
-                            movement.getRemarks()
-                    });
+        for (StockMovement movement : movements) {
+            movementTableModel.addRow(new Object[] {
+                    movement.getMovementId(),
+                    movement.getProductId(),
+                    movement.getProductName(),
+                    movement.getMovementType(),
+                    movement.getQuantity(),
+                    movement.getMovementDate(),
+                    movement.getRemarks()
+            });
         }
     }
 
@@ -655,85 +713,41 @@ public class InventoryManagementFrame extends JFrame {
     // ============================================
 
     private void deleteMovement() {
-
-        int selectedRow =
-                movementTable
-                        .getSelectedRow();
-
+        int selectedRow = movementTable.getSelectedRow();
 
         if (selectedRow == -1) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Please select a stock movement first.");
-
+            JOptionPane.showMessageDialog(this, "Please select a stock movement first.");
             return;
         }
 
+        int movementId = Integer.parseInt(
+                movementTableModel.getValueAt(selectedRow, 0).toString());
+        String movementType = movementTableModel.getValueAt(selectedRow, 3).toString();
 
-        int movementId =
-                Integer.parseInt(
-                        movementTableModel
-                                .getValueAt(
-                                        selectedRow,
-                                        0)
-                                .toString());
-
-
-        String movementType =
-                movementTableModel
-                        .getValueAt(
-                                selectedRow,
-                                3)
-                        .toString();
-
-
-        if ("SALE".equalsIgnoreCase(
-                movementType)
-
-                || "SALE_CANCEL".equalsIgnoreCase(
-                        movementType)) {
-
+        if ("SALE".equalsIgnoreCase(movementType)
+                || "SALE_CANCEL".equalsIgnoreCase(movementType)) {
             JOptionPane.showMessageDialog(
                     this,
                     "Sales-related stock movements cannot be manually deleted.");
-
             return;
         }
 
+        int answer = JOptionPane.showConfirmDialog(
+                this,
+                "Delete this stock movement and reverse its effect?",
+                "Confirm",
+                JOptionPane.YES_NO_OPTION);
 
-        int answer =
-                JOptionPane.showConfirmDialog(
-                        this,
-                        "Delete this stock movement and reverse its effect?",
-                        "Confirm",
-                        JOptionPane.YES_NO_OPTION);
-
-
-        if (answer ==
-                JOptionPane.YES_OPTION) {
-
-
-            boolean success =
-                    inventoryDAO
-                            .deleteStockMovement(
-                                    movementId);
-
+        if (answer == JOptionPane.YES_OPTION) {
+            boolean success = inventoryDAO.deleteStockMovement(movementId);
 
             if (success) {
-
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Stock movement reversed successfully!");
-
+                JOptionPane.showMessageDialog(this, "Stock movement reversed successfully!");
                 refreshAll();
-
             } else {
-
                 JOptionPane.showMessageDialog(
                         this,
-                        "Could not reverse this movement.\n"
-                        + "The operation may result in invalid stock.");
+                        "Could not reverse this movement.\nThe operation may result in invalid stock.");
             }
         }
     }
@@ -744,42 +758,31 @@ public class InventoryManagementFrame extends JFrame {
     // ============================================
 
     private void selectProductFromInventoryTable() {
-
-        int row =
-                inventoryTable
-                        .getSelectedRow();
+        int row = inventoryTable.getSelectedRow();
 
         if (row == -1) {
             return;
         }
 
+        // Convert the selected row in case the table is sorted.
+        row = inventoryTable.convertRowIndexToModel(row);
 
-        int productId =
-                Integer.parseInt(
-                        inventoryTableModel
-                                .getValueAt(
-                                        row,
-                                        1)
-                                .toString());
+        int productId = Integer.parseInt(
+                inventoryTableModel.getValueAt(row, 1).toString());
 
+        String productName =
+                inventoryTableModel.getValueAt(row, 2).toString();
 
-        for (int i = 0;
-             i < productCombo.getItemCount();
-             i++) {
+        // Keep the table selection as the authoritative product selection.
+        suppressProductSuggestions = true;
 
-            ProductItem item =
-                    productCombo.getItemAt(i);
-
-            if (item.getProductId()
-                    == productId) {
-
-                productCombo
-                        .setSelectedIndex(i);
-
-                break;
-            }
+        try {
+            selectedProductId = productId;
+            productSearchField.setText(productName);
+            productSuggestionPopup.setVisible(false);
+        } finally {
+            suppressProductSuggestions = false;
         }
-
 
         updateCurrentStockLabel();
     }
@@ -790,45 +793,21 @@ public class InventoryManagementFrame extends JFrame {
     // ============================================
 
     private void updateCurrentStockLabel() {
-
-        ProductItem selectedProduct =
-                (ProductItem)
-                        productCombo
-                                .getSelectedItem();
-
-
-        if (selectedProduct == null) {
-
-            currentStockLabel.setText(
-                    "Current Stock: -");
-
+        if (selectedProductId == null) {
+            currentStockLabel.setText("Current Stock: -");
             return;
         }
 
+        List<Inventory> inventoryList = inventoryDAO.getAllInventory();
 
-        List<Inventory> inventoryList =
-                inventoryDAO
-                        .getAllInventory();
-
-
-        for (Inventory inventory :
-                inventoryList) {
-
-            if (inventory.getProductId()
-                    == selectedProduct
-                            .getProductId()) {
-
-                currentStockLabel.setText(
-                        "Current Stock: "
-                        + inventory.getQuantity());
-
+        for (Inventory inventory : inventoryList) {
+            if (inventory.getProductId() == selectedProductId) {
+                currentStockLabel.setText("Current Stock: " + inventory.getQuantity());
                 return;
             }
         }
 
-
-        currentStockLabel.setText(
-                "Current Stock: 0");
+        currentStockLabel.setText("Current Stock: 0");
     }
 
 
@@ -837,7 +816,6 @@ public class InventoryManagementFrame extends JFrame {
     // ============================================
 
     private void refreshAll() {
-
         loadInventory();
         loadStockMovements();
         updateCurrentStockLabel();
@@ -849,53 +827,46 @@ public class InventoryManagementFrame extends JFrame {
     // ============================================
 
     private void clearFields() {
+        suppressProductSuggestions = true;
 
-        quantityField.setText("");
-        remarksField.setText("");
+        try {
+            quantityField.setText("");
+            remarksField.setText("");
+            productSearchField.setText("");
 
-        if (productCombo.getItemCount() > 0) {
+            selectedProductId = null;
 
-            productCombo.setSelectedIndex(0);
+            productSuggestionPopup.setVisible(false);
+            suggestionPopup.setVisible(false);
+
+            inventoryTable.clearSelection();
+        } finally {
+            suppressProductSuggestions = false;
         }
-
-        inventoryTable.clearSelection();
 
         updateCurrentStockLabel();
     }
 
 
     // ============================================
-    // PRODUCT COMBO ITEM
+    // PRODUCT ITEM HELPER
     // ============================================
 
     private static class ProductItem {
-
         private int productId;
         private String productName;
 
-        public ProductItem(
-                int productId,
-                String productName) {
-
-            this.productId =
-                    productId;
-
-            this.productName =
-                    productName;
+        public ProductItem(int productId, String productName) {
+            this.productId = productId;
+            this.productName = productName;
         }
 
-
-        public int getProductId() {
-            return productId;
-        }
-
+        public int getProductId() { return productId; }
+        public String getProductName() { return productName; }
 
         @Override
         public String toString() {
-
-            return productId
-                    + " - "
-                    + productName;
+            return productId + " - " + productName;
         }
     }
 }

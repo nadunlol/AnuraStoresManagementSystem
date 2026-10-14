@@ -20,6 +20,8 @@ import javax.swing.table.JTableHeader;
 
 public class UITheme {
 
+    private static boolean darkModeEnabled = false;
+
     // =========================================
     // COLORS
     // =========================================
@@ -28,11 +30,46 @@ public class UITheme {
     public static final Color SECONDARY = new Color(46, 204, 113);
     public static final Color WARNING = new Color(241, 196, 15);
     public static final Color DANGER = new Color(231, 76, 60);
-    public static final Color LIGHT_BG = new Color(245, 247, 250);
-    public static final Color CARD_BG = Color.WHITE;
-    public static final Color TEXT_DARK = new Color(44, 62, 80);
+
+    // Light & Dark Palette Values
+    public static final Color LIGHT_BG_VAL = new Color(245, 247, 250);
+    public static final Color DARK_BG_VAL = new Color(30, 30, 30);
+
+    public static final Color CARD_BG_LIGHT = Color.WHITE;
+    public static final Color CARD_BG_DARK = new Color(45, 45, 45);
+
+    public static final Color TEXT_DARK_VAL = new Color(44, 62, 80);
+    public static final Color TEXT_LIGHT_VAL = new Color(230, 230, 230);
+
+    public static final Color BORDER_LIGHT = new Color(210, 215, 223);
+    public static final Color BORDER_DARK = new Color(70, 70, 70);
+
+    // Dynamic references used across UI methods
+    public static Color LIGHT_BG = LIGHT_BG_VAL;
+    public static Color CARD_BG = CARD_BG_LIGHT;
+    public static Color TEXT_DARK = TEXT_DARK_VAL;
+    public static Color BORDER = BORDER_LIGHT;
     public static final Color TEXT_LIGHT = Color.WHITE;
-    public static final Color BORDER = new Color(210, 215, 223);
+
+    public static void setDarkMode(boolean enabled) {
+        darkModeEnabled = enabled;
+        if (enabled) {
+            LIGHT_BG = DARK_BG_VAL;
+            CARD_BG = CARD_BG_DARK;
+            TEXT_DARK = TEXT_LIGHT_VAL;
+            BORDER = BORDER_DARK;
+        } else {
+            LIGHT_BG = LIGHT_BG_VAL;
+            CARD_BG = CARD_BG_LIGHT;
+            TEXT_DARK = TEXT_DARK_VAL;
+            BORDER = BORDER_LIGHT;
+        }
+    }
+
+    public static boolean isDarkMode() {
+        return darkModeEnabled;
+    }
+
 
     // =========================================
     // FONTS
@@ -82,6 +119,11 @@ public class UITheme {
         label.setFont(SUBTITLE_FONT);
         label.setForeground(TEXT_DARK);
     }
+    
+    public static void styleSectionLabel(JLabel label) {
+        label.setFont(SUBTITLE_FONT);
+        label.setForeground(TEXT_DARK);
+    }
 
     public static void styleNormalLabel(JLabel label) {
         label.setFont(NORMAL_FONT);
@@ -95,13 +137,17 @@ public class UITheme {
     public static void styleTextField(JTextField field) {
         field.setFont(NORMAL_FONT);
         field.setPreferredSize(new Dimension(180, 32));
+        field.setBackground(darkModeEnabled ? new Color(60, 60, 60) : Color.WHITE);
+        field.setForeground(TEXT_DARK);
+        field.setCaretColor(TEXT_DARK);
         field.setBorder(createRoundedBorder());
     }
 
     public static void styleComboBox(JComboBox<?> comboBox) {
         comboBox.setFont(NORMAL_FONT);
         comboBox.setPreferredSize(new Dimension(180, 32));
-        comboBox.setBackground(Color.WHITE);
+        comboBox.setBackground(darkModeEnabled ? new Color(60, 60, 60) : Color.WHITE);
+        comboBox.setForeground(TEXT_DARK);
         comboBox.setBorder(createRoundedBorder());
     }
 
@@ -137,7 +183,7 @@ public class UITheme {
     public static void styleWarningButton(JButton button) {
         button.setFont(BUTTON_FONT);
         button.setBackground(WARNING);
-        button.setForeground(TEXT_DARK);
+        button.setForeground(darkModeEnabled ? Color.WHITE : TEXT_DARK_VAL);
         button.setFocusPainted(false);
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
         button.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
@@ -154,13 +200,26 @@ public class UITheme {
 
     public static void styleSecondaryButton(JButton button) {
         button.setFont(BUTTON_FONT);
-        button.setBackground(Color.WHITE);
+        button.setBackground(darkModeEnabled ? new Color(60, 60, 60) : Color.WHITE);
         button.setForeground(TEXT_DARK);
         button.setFocusPainted(false);
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setBorder(BorderFactory.createLineBorder(BORDER, 1));
+        button.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
     }
 
+    // =========================================
+    // JOPTIONPANE STYLING
+    // =========================================
+    public static void setupJOptionPaneTheme() {
+        javax.swing.UIManager.put("Panel.background", LIGHT_BG);
+        javax.swing.UIManager.put("OptionPane.background", LIGHT_BG);
+        javax.swing.UIManager.put("OptionPane.messageFont", NORMAL_FONT);
+        javax.swing.UIManager.put("OptionPane.messageForeground", TEXT_DARK);
+        javax.swing.UIManager.put("Button.font", BUTTON_FONT);
+        javax.swing.UIManager.put("Button.background", PRIMARY);
+        javax.swing.UIManager.put("Button.foreground", TEXT_LIGHT);
+        javax.swing.UIManager.put("Button.focus", PRIMARY_DARK);
+    }
 
     // =========================================
     // TABLE
@@ -169,8 +228,10 @@ public class UITheme {
         table.setFont(TABLE_FONT);
         table.setRowHeight(24);
         table.setGridColor(BORDER);
-        table.setSelectionBackground(new Color(204, 229, 255));
-        table.setSelectionForeground(TEXT_DARK);
+        table.setBackground(darkModeEnabled ? new Color(40, 40, 40) : Color.WHITE);
+        table.setForeground(TEXT_DARK);
+        table.setSelectionBackground(darkModeEnabled ? new Color(52, 152, 219) : new Color(204, 229, 255));
+        table.setSelectionForeground(darkModeEnabled ? Color.WHITE : TEXT_DARK_VAL);
 
         JTableHeader header = table.getTableHeader();
         header.setFont(TABLE_HEADER_FONT);
@@ -214,6 +275,6 @@ public class UITheme {
     // GENERIC COMPONENT BACKGROUND
     // =========================================
     public static void setWhiteBackground(JComponent component) {
-        component.setBackground(Color.WHITE);
+        component.setBackground(darkModeEnabled ? new Color(45, 45, 45) : Color.WHITE);
     }
 }

@@ -1,0 +1,17 @@
+# Eclipse workspace metadata
+.metadata/
+
+# Compiled Java files
+bin/
+*.class
+
+# Generated installers and packages
+*.exe
+*.msi
+
+# Local database credentials
+db.properties
+
+# Operating system files
+.DS_Store
+Thumbs.db
